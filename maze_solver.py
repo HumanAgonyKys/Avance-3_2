@@ -1,93 +1,93 @@
 import streamlit as st
 import time
-# Importamos todas las funciones desde applaberinto
 from applaberinto import MAZE, START, END, solve_maze_bfs, solve_maze_dfs, solve_maze_astar
 
-st.set_page_config(page_title="Maze Solver Pro", page_icon="🧩", layout="wide")
+st.set_page_config(page_title="Maze Solver", layout="wide")
 
-st.title("Visualizador de Algoritmo de Búsqueda")
-st.write("Comparación de algoritmos en un laberinto complejo.")
+st.title("Visualizador de Laberintos")
 
-# Función para renderizar el laberinto
+# --- Diagnóstico Inicial ---
+st.sidebar.subheader("Diagnóstico del Mapa")
+rows = len(MAZE)
+cols = len(MAZE[0]) if rows > 0 else 0
+st.sidebar.write(f"Dimensiones: {rows} filas x {cols} columnas")
+st.sidebar.write(f"Inicio {START}: {'✅ Libre' if MAZE[START[0]][START[1]]==0 else '❌ MURO'}")
+st.sidebar.write(f"Meta {END}: {'✅ Libre' if MAZE[END[0]][END[1]]==0 else '❌ MURO'}")
+
 def render_maze(maze, path=None):
     if path is None:
         path = []
-    
-    path_set = set(path) # Convertir a set para búsqueda O(1) rápida
+    path_set = set(path)
     
     display_maze = []
     for r_idx, row in enumerate(maze):
         display_row = []
         for c_idx, col in enumerate(row):
+            # Prioridad de renderizado
             if (r_idx, c_idx) == START:
-                display_row.append("🟢") 
+                display_row.append("🚀") 
             elif (r_idx, c_idx) == END:
                 display_row.append("🏁") 
             elif (r_idx, c_idx) in path_set:
-                display_row.append("🟦") 
+                display_row.append("🟦") # Camino
             elif col == 1:
-                display_row.append("⬛") 
+                display_row.append("⬛") # Muro
             else:
-                display_row.append("⬜") 
+                display_row.append("⬜") # Pasillo
         display_maze.append("".join(display_row))
     
-    # Ajustamos el tamaño de fuente más pequeño porque el laberinto es grande
     st.markdown(
         f"""
-        <div style="font-family: monospace; line-height: 1.0; font-size: 10px; white-space: pre;">
+        <div style="
+            font-family: monospace; 
+            line-height: 10px; 
+            font-size: 10px; 
+            white-space: pre; 
+            overflow-x: auto;
+            text-align: center;
+        ">
             {'<br>'.join(display_maze)}
         </div>
         """, 
         unsafe_allow_html=True
     )
 
-# --- Sidebar ---
-st.sidebar.header("Configuración")
-algorithm = st.sidebar.selectbox(
-    "Selecciona el algoritmo", 
-    ["BFS (Búsqueda en Amplitud)", "DFS (Búsqueda en Profundidad)", "A* (A-Star)"]
-)
-solve_button = st.sidebar.button("Resolver Laberinto")
+# --- Panel de Control ---
+algorithm = st.sidebar.selectbox("Algoritmo", ["BFS", "DFS", "A*"])
+solve_btn = st.sidebar.button("Resolver")
 
-# --- Lógica ---
-col1, col2 = st.columns([3, 1])
+col_main, col_stats = st.columns([3, 1])
 
-with col1:
-    if not solve_button:
-        st.subheader("Laberinto Inicial")
+with col_main:
+    if not solve_btn:
+        st.subheader("Laberinto Original")
         render_maze(MAZE)
-
-    if solve_button:
-        path = None
-        st.subheader(f"Resultado: {algorithm}")
-        
+    else:
+        st.subheader(f"Resultado usando {algorithm}")
         start_time = time.perf_counter()
         
-        if "BFS" in algorithm:
-            path = solve_maze_bfs(MAZE, START, END)
-        elif "DFS" in algorithm:
-            path = solve_maze_dfs(MAZE, START, END)
-        elif "A*" in algorithm:
-            path = solve_maze_astar(MAZE, START, END)
-            
+        path = None
+        try:
+            if algorithm == "BFS":
+                path = solve_maze_bfs(MAZE, START, END)
+            elif algorithm == "DFS":
+                path = solve_maze_dfs(MAZE, START, END)
+            elif algorithm == "A*":
+                path = solve_maze_astar(MAZE, START, END)
+        except Exception as e:
+            st.error(f"Error ejecutando el algoritmo: {e}")
+        
         end_time = time.perf_counter()
-        elapsed_time = (end_time - start_time) * 1000 
-
+        
         if path:
             render_maze(MAZE, path)
-            st.success(f"¡Meta alcanzada!")
+            st.success("¡Laberinto Resuelto!")
         else:
-            st.error("No se encontró salida.")
+            st.error("No se encontró solución o los puntos de inicio/fin están bloqueados.")
             render_maze(MAZE)
 
-with col2:
-    if solve_button and path:
-        st.metric(label="Tiempo de Ejecución", value=f"{elapsed_time:.4f} ms")
-        st.metric(label="Pasos en el camino", value=f"{len(path)}")
-        
-        st.info("""
-        **Nota sobre los algoritmos:**
-        * **BFS:** Encuentra el camino más corto garantizado.
-        * **DFS:** Puede encontrar caminos muy largos y dar muchas vueltas, pero usa menos memoria.
-        * **A*:** Encuentra el camino más corto (igual que BFS) pero usualmente mucho más rápido porque sabe a dónde ir.
-        """)
+with col_stats:
+    if solve_btn and path:
+        elapsed = (end_time - start_time) * 1000
+        st.metric("Tiempo (ms)", f"{elapsed:.4f}")
+        st.metric("Pasos", len(path))
