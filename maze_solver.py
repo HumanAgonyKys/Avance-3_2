@@ -1,61 +1,52 @@
-import collections
+import streamlit as st
+import pandas as pd
+from maze_solver import MAZE, START, END, solve_maze_bfs
 
-def solve_maze_bfs(maze, start, end):
-    """Resuelve el laberinto usando el algoritmo de BÃºsqueda en Amplitud (BFS)."""
-    rows, cols = len(maze), len(maze[0])
-    queue = collections.deque([(start, [start])])
-    visited = set()
-    visited.add(start)
+st.title("Visualizador de Algoritmo de BÃºsqueda en Laberinto")
 
-    while queue:
-        (curr_row, curr_col), path = queue.popleft()
-
-        if (curr_row, curr_col) == end:
-            return path
-
-        # Movimientos posibles: arriba, abajo, izquierda, derecha
-        for dr, dc in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
-            next_row, next_col = curr_row + dr, curr_col + dc
-            
-            if 0 <= next_row < rows and 0 <= next_col < cols and \
-               maze[next_row][next_col] == 0 and (next_row, next_col) not in visited:
-                visited.add((next_row, next_col))
-                new_path = list(path)
-                new_path.append((next_row, next_col))
-                queue.append(((next_row, next_col), new_path))
+# FunciÃ³n para renderizar el laberinto
+def render_maze(maze, path=None):
+    if path is None:
+        path = []
     
-    return None # No se encontrÃ³ camino
+    # Convertir el laberinto a un formato que Streamlit pueda mostrar fÃ¡cilmente,
+    # por ejemplo, una tabla o usando st.markdown con emojis/colores.
+    # Para una mejor visualizaciÃ³n interactiva, podrÃ­as usar bibliotecas como Pygame o Plotly, 
+    # pero para un inicio, un enfoque simple es suficiente.
 
-# Puedes implementar DFS de manera similar, usando una lista como pila (o recursiÃ³n).
+    display_maze = []
+    for r_idx, row in enumerate(maze):
+        display_row = []
+        for c_idx, col in enumerate(row):
+            if (r_idx, c_idx) == START:
+                display_row.append("ðŸš€") # Inicio
+            elif (r_idx, c_idx) == END:
+                display_row.append("ðŸ") # Fin
+            elif (r_idx, c_idx) in path:
+                display_row.append("ðŸ”¹") # Camino resuelto
+            elif col == 1:
+                display_row.append("â¬›") # Muro
+            else:
+                display_row.append("â¬œ") # Camino libre
+        display_maze.append("".join(display_row))
+    
+    st.markdown("<br>".join(display_maze), unsafe_allow_html=True)
 
-# RepresentaciÃ³n del laberinto (0: camino libre, 1: muro, 2: inicio, 3: fin)
-# Un laberinto de ejemplo:
 
-MAZE = [
-        [0,1,0,0,0,0,1,0,0,0],
-        [0,1,0,1,1,0,1,0,1,0],
-        [0,0,0,0,1,0,0,0,1,0],
-        [1,1,1,0,1,1,1,0,1,0],
-        [0,0,0,0,0,0,0,0,1,0],
-        [0,1,1,1,1,1,1,0,1,0],
-        [0,0,0,0,0,0,1,0,1,0],
-        [0,1,1,1,1,0,1,0,1,0],
-        [0,0,0,0,1,0,0,0,1,0],
-        [0,1,1,0,0,0,1,0,0,0]
-    ]
+# Sidebar para controles
+st.sidebar.header("Opciones")
+algorithm = st.sidebar.selectbox("Selecciona el algoritmo", ["BFS(no implementado)", "DFS (no implementado)", "A* (no implementado)"])
+solve_button = st.sidebar.button("Resolver Laberinto")
 
-#MAZE = [
-#    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-#    [1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-#    [1, 0, 1, 1, 1, 1, 1, 1, 0, 1],
-#    [1, 0, 1, 0, 0, 0, 0, 1, 0, 1],
-#    [1, 0, 1, 0, 1, 1, 0, 1, 0, 1],
-#    [1, 0, 0, 0, 0, 1, 0, 0, 0, 1],
-#    [1, 1, 1, 1, 0, 1, 1, 1, 0, 1],
-#    [1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-#    [1, 0, 1, 1, 1, 1, 1, 1, 0, 1],
-#    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
-#]
-
-START = (0, 0)
-END = (9, 9)
+render_maze(MAZE)
+#aqui va la opcion de Resolver Laberinto
+#if solve_button:
+#    if algorithm == "BFS":
+#        path = solve_maze_bfs(MAZE, START, END)
+#        if path:
+#            st.success(f"Â¡Camino encontrado con {algorithm}!")
+#            render_maze(MAZE, path)
+#        else:
+#            st.error("No se encontrÃ³ un camino.")
+#    else:
+#        st.warning(f"El algoritmo {algorithm} aÃºn no estÃ¡ implementado. Usa BFS.")
