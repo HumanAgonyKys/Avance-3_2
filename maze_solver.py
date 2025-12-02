@@ -1,93 +1,127 @@
 import streamlit as st
 import time
+# Importamos la lógica y los datos desde applaberinto
 from applaberinto import MAZE, START, END, solve_maze_bfs, solve_maze_dfs, solve_maze_astar
 
-st.set_page_config(page_title="Maze Solver", layout="wide")
+st.set_page_config(page_title="Maze Solver - 3 Métodos", layout="wide")
 
-st.title("Visualizador de Laberintos")
+st.title("🧩 Solucionador de Laberintos")
+st.markdown("Comparación de algoritmos: **BFS**, **DFS** y **A***")
 
-# --- Diagnóstico Inicial ---
-st.sidebar.subheader("Diagnóstico del Mapa")
-rows = len(MAZE)
-cols = len(MAZE[0]) if rows > 0 else 0
-st.sidebar.write(f"Dimensiones: {rows} filas x {cols} columnas")
-st.sidebar.write(f"Inicio {START}: {'✅ Libre' if MAZE[START[0]][START[1]]==0 else '❌ MURO'}")
-st.sidebar.write(f"Meta {END}: {'✅ Libre' if MAZE[END[0]][END[1]]==0 else '❌ MURO'}")
-
+# --- Función de Visualización ---
 def render_maze(maze, path=None):
     if path is None:
         path = []
-    path_set = set(path)
+    path_set = set(path) # Optimización para búsqueda rápida
     
-    display_maze = []
-    for r_idx, row in enumerate(maze):
-        display_row = []
-        for c_idx, col in enumerate(row):
-            # Prioridad de renderizado
-            if (r_idx, c_idx) == START:
-                display_row.append("🚀") 
-            elif (r_idx, c_idx) == END:
-                display_row.append("🏁") 
-            elif (r_idx, c_idx) in path_set:
-                display_row.append("🟦") # Camino
-            elif col == 1:
-                display_row.append("⬛") # Muro
+    rows = len(maze)
+    cols = len(maze[0])
+    
+    html_maze = []
+    
+    # Renderizamos fila por fila
+    for r in range(rows):
+        row_str = ""
+        for c in range(cols):
+            cell_value = maze[r][c]
+            
+            # Definimos el símbolo a dibujar
+            if (r, c) == START:
+                symbol = "🟢" # Inicio
+            elif (r, c) == END:
+                symbol = "🏁" # Fin
+            elif (r, c) in path_set:
+                symbol = "🟦" # Camino
+            elif cell_value == 1:
+                symbol = "⬛" # Muro
             else:
-                display_row.append("⬜") # Pasillo
-        display_maze.append("".join(display_row))
+                symbol = "⬜" # Pasillo libre
+            
+            row_str += symbol
+        html_maze.append(row_str)
     
+    # CSS para forzar que los caracteres se vean cuadrados y alineados
+    # Usamos line-height ajustado y una fuente monoespaciada
     st.markdown(
         f"""
         <div style="
-            font-family: monospace; 
-            line-height: 10px; 
-            font-size: 10px; 
+            font-family: 'Courier New', monospace; 
+            line-height: 0.8; 
+            font-size: 14px; 
+            letter-spacing: 0px;
             white-space: pre; 
             overflow-x: auto;
-            text-align: center;
+            border: 2px solid #333;
+            display: inline-block;
+            padding: 10px;
+            background-color: #f0f0f0;
         ">
-            {'<br>'.join(display_maze)}
+            {'<br>'.join(html_maze)}
         </div>
         """, 
         unsafe_allow_html=True
     )
 
-# --- Panel de Control ---
-algorithm = st.sidebar.selectbox("Algoritmo", ["BFS", "DFS", "A*"])
-solve_btn = st.sidebar.button("Resolver")
+# --- Sidebar (Barra Lateral) ---
+st.sidebar.header("Configuración")
 
-col_main, col_stats = st.columns([3, 1])
+# Información del Mapa
+st.sidebar.info(f"Dimensiones: {len(MAZE)}x{len(MAZE[0])}")
+st.sidebar.text(f"Inicio: {START}")
+st.sidebar.text(f"Meta: {END}")
 
-with col_main:
+# Selector de Algoritmo
+algo_option = st.sidebar.radio(
+    "Selecciona el Algoritmo:",
+    ("BFS (Amplitud)", "DFS (Profundidad)", "A* (A-Star)")
+)
+
+solve_btn = st.sidebar.button("🚀 Resolver Laberinto", type="primary")
+
+# --- Lógica Principal ---
+col1, col2 = st.columns([2, 1])
+
+with col1:
+    st.subheader("Visualización del Laberinto")
     if not solve_btn:
-        st.subheader("Laberinto Original")
+        # Mostrar estado inicial
         render_maze(MAZE)
     else:
-        st.subheader(f"Resultado usando {algorithm}")
+        # Resolver
+        path = None
         start_time = time.perf_counter()
         
-        path = None
         try:
-            if algorithm == "BFS":
+            if "BFS" in algo_option:
                 path = solve_maze_bfs(MAZE, START, END)
-            elif algorithm == "DFS":
+            elif "DFS" in algo_option:
                 path = solve_maze_dfs(MAZE, START, END)
-            elif algorithm == "A*":
+            elif "A*" in algo_option:
                 path = solve_maze_astar(MAZE, START, END)
         except Exception as e:
-            st.error(f"Error ejecutando el algoritmo: {e}")
-        
+            st.error(f"Ocurrió un error: {e}")
+
         end_time = time.perf_counter()
-        
+        elapsed_ms = (end_time - start_time) * 1000
+
         if path:
             render_maze(MAZE, path)
-            st.success("¡Laberinto Resuelto!")
+            st.success("¡Camino encontrado con éxito!")
         else:
-            st.error("No se encontró solución o los puntos de inicio/fin están bloqueados.")
+            st.error("No se encontró solución. Revisa si el inicio o fin están bloqueados.")
             render_maze(MAZE)
 
-with col_stats:
+with col2:
     if solve_btn and path:
-        elapsed = (end_time - start_time) * 1000
-        st.metric("Tiempo (ms)", f"{elapsed:.4f}")
-        st.metric("Pasos", len(path))
+        st.subheader("Resultados")
+        st.metric(label="⏱️ Tiempo de Ejecución", value=f"{elapsed_ms:.4f} ms")
+        st.metric(label="👣 Pasos Totales", value=f"{len(path)}")
+        
+        st.markdown("---")
+        st.markdown("**Análisis:**")
+        if "BFS" in algo_option:
+            st.write("BFS garantiza el camino más corto explorando por niveles.")
+        elif "DFS" in algo_option:
+            st.write("DFS explora profundamente. El camino suele ser más largo y errático, pero usa menos memoria en mapas muy anchos.")
+        elif "A*" in algo_option:
+            st.write("A* es inteligente. Usa la distancia a la meta para priorizar caminos, encontrando la solución óptima (igual que BFS) pero más rápido.")
