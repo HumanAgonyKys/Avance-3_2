@@ -1,102 +1,98 @@
 import streamlit as st
 import time
-import matplotlib.pyplot as plt
-from matplotlib.colors import ListedColormap
-import numpy as np
-
-# Importamos la lógica
 from applaberinto import MAZE, START, END, solve_maze_bfs, solve_maze_dfs, solve_maze_astar
 
-st.set_page_config(page_title="Maze Solver Pro", layout="centered")
+st.set_page_config(page_title="Maze Solver Retro", layout="centered")
 
-st.title("🧩 Solucionador de Laberintos")
-st.markdown("Algoritmos: **BFS**, **DFS** y **A***")
+st.title("🏰 Solucionador de Laberinto")
+st.markdown("Estilo clásico con visualización de bloques.")
 
-# --- FUNCIÓN DE RENDERIZADO GRÁFICO ---
-def render_maze_plot(maze, path=None):
-    """
-    Dibuja el laberinto usando Matplotlib para garantizar cuadros perfectos.
-    """
-    # 1. Convertimos la lista de listas en un array de numpy para manipularlo fácil
-    maze_np = np.array(maze)
+# --- FUNCIÓN DE RENDERIZADO (TEXTO/EMOJIS) ---
+def render_maze(maze, path=None):
+    if path is None:
+        path = []
+    path_set = set(path) # Convertimos a set para búsqueda rápida
     
-    # 2. Creamos una matriz de "colores" (mapa de visualización)
-    # 0 = Camino (Blanco)
-    # 1 = Muro (Negro)
-    # 2 = Solución (Azul)
-    # 3 = Inicio (Verde)
-    # 4 = Fin (Rojo)
+    rows = len(maze)
+    cols = len(maze[0])
     
-    # Copiamos para no modificar el original
-    display_grid = maze_np.copy()
+    html_maze = []
     
-    # Si hay un camino, lo marcamos con el número 2
-    if path:
-        for (r, c) in path:
-            if (r, c) != START and (r, c) != END:
-                display_grid[r][c] = 2
+    # Construimos el laberinto fila por fila
+    for r in range(rows):
+        row_str = ""
+        for c in range(cols):
+            # Prioridad de íconos
+            if (r, c) == START:
+                symbol = "🟢" # Inicio
+            elif (r, c) == END:
+                symbol = "🏁" # Fin
+            elif (r, c) in path_set:
+                symbol = "🟦" # Camino resuelto
+            elif maze[r][c] == 1:
+                symbol = "⬛" # Pared
+            else:
+                symbol = "⬜" # Pasillo vacío
+            
+            row_str += symbol
+        html_maze.append(row_str)
     
-    # Marcamos Inicio (3) y Fin (4)
-    display_grid[START] = 3
-    display_grid[END] = 4
+    # CSS ajustado para compactar las líneas y que se vea mejor
+    st.markdown(
+        f"""
+        <div style="
+            font-family: monospace; 
+            line-height: 12px; 
+            font-size: 12px; 
+            letter-spacing: 0px; 
+            white-space: pre; 
+            text-align: center;
+            border: 4px solid #333;
+            padding: 10px;
+            background-color: #222;
+            color: white;
+            display: inline-block;
+        ">
+            {'<br>'.join(html_maze)}
+        </div>
+        """, 
+        unsafe_allow_html=True
+    )
 
-    # 3. Definimos los colores personalizados
-    # El orden corresponde a los números: 0, 1, 2, 3, 4
-    # 0: Blanco, 1: Negro, 2: Azul Claro, 3: Verde, 4: Rojo
-    cmap = ListedColormap(['#ffffff', '#000000', '#3399ff', '#00cc00', '#cc0000'])
-    
-    # 4. Crear la figura
-    fig, ax = plt.subplots(figsize=(8, 8)) # Tamaño cuadrado
-    ax.imshow(display_grid, cmap=cmap, interpolation='nearest')
-    
-    # Quitar los ejes (números de los lados) para que se vea limpio
-    ax.axis('off')
-    
-    # Mostrar en Streamlit
-    st.pyplot(fig)
+# --- BARRA LATERAL ---
+st.sidebar.header("Opciones")
+algorithm = st.sidebar.selectbox("Algoritmo", ["BFS (Amplitud)", "DFS (Profundidad)", "A* (A-Star)"])
+solve_btn = st.sidebar.button("Resolver")
 
-# --- INTERFAZ ---
-st.sidebar.header("Configuración")
-algo_option = st.sidebar.selectbox(
-    "Selecciona el Algoritmo:",
-    ["BFS (Amplitud)", "DFS (Profundidad)", "A* (A-Star)"]
-)
-
-solve_btn = st.sidebar.button("🚀 Resolver", type="primary")
-
-# --- LÓGICA DE EJECUCIÓN ---
-
+# --- LÓGICA PRINCIPAL ---
 if not solve_btn:
-    st.subheader("Estado Inicial")
-    render_maze_plot(MAZE)
+    st.subheader("Laberinto Inicial")
+    render_maze(MAZE)
 else:
-    st.subheader(f"Resultado: {algo_option}")
+    st.subheader(f"Resultado: {algorithm}")
+    
     path = None
     start_time = time.perf_counter()
     
-    try:
-        if "BFS" in algo_option:
-            path = solve_maze_bfs(MAZE, START, END)
-        elif "DFS" in algo_option:
-            path = solve_maze_dfs(MAZE, START, END)
-        elif "A*" in algo_option:
-            path = solve_maze_astar(MAZE, START, END)
-    except Exception as e:
-        st.error(f"Error: {e}")
-
+    # Ejecutar algoritmo seleccionado
+    if "BFS" in algorithm:
+        path = solve_maze_bfs(MAZE, START, END)
+    elif "DFS" in algorithm:
+        path = solve_maze_dfs(MAZE, START, END)
+    elif "A*" in algorithm:
+        path = solve_maze_astar(MAZE, START, END)
+        
     end_time = time.perf_counter()
-    elapsed_ms = (end_time - start_time) * 1000
+    elapsed_time = (end_time - start_time) * 1000
 
     if path:
-        # Mostramos métricas
-        col1, col2 = st.columns(2)
-        col1.metric("Tiempo", f"{elapsed_ms:.4f} ms")
-        col2.metric("Pasos", len(path))
+        render_maze(MAZE, path)
+        st.success(f"¡Camino encontrado!")
         
-        # Mostramos el laberinto resuelto
-        render_maze_plot(MAZE, path)
-        
-        st.success("¡Meta alcanzada!")
+        # Métricas
+        c1, c2 = st.columns(2)
+        c1.metric("Tiempo", f"{elapsed_time:.4f} ms")
+        c2.metric("Pasos", len(path))
     else:
-        st.error("No se encontró camino.")
-        render_maze_plot(MAZE)
+        st.error("No se encontró solución.")
+        render_maze(MAZE)
