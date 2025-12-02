@@ -1,9 +1,9 @@
 import collections
 import heapq
 
-# --- 1. DEFINICIÓN DEL LABERINTO ---
-# Usamos raw string (r"") y strip() para evitar errores de espacios
-maze_str = r"""
+# --- 1. DEFINICIÓN EXACTA DEL LABERINTO ---
+# Copiamos exactamente el bloque de texto que proporcionaste.
+maze_raw = """
 10111111111111111111111111111111
 10100010001000000000100000000011
 10101010101111101110111011111011
@@ -43,116 +43,112 @@ maze_str = r"""
 11111111111111111111111111111101
 """
 
-# Limpiamos el string y creamos la matriz asegurando que no haya lineas vacias
+# Convertimos el texto en una matriz de enteros
 MAZE = []
-for line in maze_str.strip().split('\n'):
+for line in maze_raw.strip().split('\n'):
     clean_line = line.strip()
     if clean_line:
-        MAZE.append([int(c) for c in clean_line])
+        MAZE.append([int(ch) for ch in clean_line])
 
-# --- 2. CONFIGURACIÓN DE PUNTOS ---
+# --- 2. CÁLCULO DE COORDENADAS ---
 rows = len(MAZE)
 cols = len(MAZE[0])
 
-# COORDENADAS FIJAS basadas en tu imagen y el texto
-START = (0, 1)            # Fila 0, Columna 1 (La segunda casilla superior)
-END = (rows - 1, cols - 2) # Última fila, penúltima columna
+START = (0, 1)             # Fila 0, Columna 1 (Según el texto '101...')
+END = (rows - 1, cols - 2) # Última fila, penúltima columna (Según el texto '...1101')
 
 # --- 3. FUNCIONES AUXILIARES ---
 
-def is_valid_point(maze, point):
-    """Verifica si un punto es transitable (0) y está dentro de los límites."""
-    r, c = point
-    if 0 <= r < len(maze) and 0 <= c < len(maze[0]):
-        return maze[r][c] == 0
-    return False
-
 def get_neighbors(maze, row, col):
-    rows, cols = len(maze), len(maze[0])
+    """Retorna vecinos válidos (arriba, abajo, izq, der) que sean 0 (camino)."""
+    rows_len, cols_len = len(maze), len(maze[0])
     # Orden: Abajo, Derecha, Arriba, Izquierda
-    moves = [(1, 0), (0, 1), (-1, 0), (0, -1)]
+    deltas = [(1, 0), (0, 1), (-1, 0), (0, -1)]
     neighbors = []
     
-    for dr, dc in moves:
-        n_row, n_col = row + dr, col + dc
-        if 0 <= n_row < rows and 0 <= n_col < cols:
-            if maze[n_row][n_col] == 0:
-                neighbors.append((n_row, n_col))
+    for dr, dc in deltas:
+        nr, nc = row + dr, col + dc
+        # Verificar límites y que no sea muro (1)
+        if 0 <= nr < rows_len and 0 <= nc < cols_len:
+            if maze[nr][nc] == 0:
+                neighbors.append((nr, nc))
     return neighbors
 
-# --- 4. ALGORITMOS ---
+def heuristic(a, b):
+    """Distancia Manhattan para A* (|x1-x2| + |y1-y2|)."""
+    return abs(a[0] - b[0]) + abs(a[1] - b[1])
+
+# --- 4. ALGORITMOS DE BÚSQUEDA ---
 
 def solve_maze_bfs(maze, start, end):
-    if not is_valid_point(maze, start) or not is_valid_point(maze, end):
-        return None 
-        
+    """Breadth-First Search: Garantiza el camino más corto."""
     queue = collections.deque([(start, [start])])
-    visited = set()
-    visited.add(start)
+    visited = set([start])
 
     while queue:
-        (curr, path) = queue.popleft()
-        if curr == end:
+        (current, path) = queue.popleft()
+        
+        if current == end:
             return path
 
-        for neighbor in get_neighbors(maze, curr[0], curr[1]):
+        for neighbor in get_neighbors(maze, current[0], current[1]):
             if neighbor not in visited:
                 visited.add(neighbor)
                 queue.append((neighbor, path + [neighbor]))
     return None
 
 def solve_maze_dfs(maze, start, end):
-    if not is_valid_point(maze, start) or not is_valid_point(maze, end):
-        return None
-
-    # Usamos pila iterativa para evitar errores de recursión máxima en mapas grandes
+    """Depth-First Search (Iterativo): Explora a profundidad."""
+    # Usamos una lista como Pila (LIFO)
     stack = [(start, [start])]
-    visited = set()
-    
+    visited = set() # No marcamos start al inicio para permitir backtracking en implementaciones simples
+
     while stack:
-        (curr, path) = stack.pop()
+        (current, path) = stack.pop()
         
-        if curr == end:
+        if current == end:
             return path
         
-        if curr not in visited:
-            visited.add(curr)
-            # Agregamos vecinos
-            for neighbor in get_neighbors(maze, curr[0], curr[1]):
-                if neighbor not in visited:
-                    stack.append((neighbor, path + [neighbor]))
+        if current in visited:
+            continue
+        visited.add(current)
+
+        # En DFS, el orden de agregación afecta el camino final.
+        for neighbor in get_neighbors(maze, current[0], current[1]):
+            if neighbor not in visited:
+                stack.append((neighbor, path + [neighbor]))
     return None
 
-def heuristic(a, b):
-    # Distancia Manhattan
-    return abs(a[0] - b[0]) + abs(a[1] - b[1])
-
 def solve_maze_astar(maze, start, end):
-    if not is_valid_point(maze, start) or not is_valid_point(maze, end):
-        return None
-
-    queue = [] # Priority Queue
-    # Tupla: (costo_f, nodo_actual, camino)
-    heapq.heappush(queue, (0, start, [start]))
+    """A* (A-Star): Búsqueda informada con heurística."""
+    # Cola de prioridad guarda: (f_score, nodo_actual, camino)
+    # f_score = g_score (pasos dados) + h_score (estimación al final)
+    pq = []
+    heapq.heappush(pq, (0, start, [start]))
+    
     visited = set()
-    g_score = {start: 0}
+    g_score = {start: 0} # Costo real desde el inicio
 
-    while queue:
-        _, curr, path = heapq.heappop(queue)
-
-        if curr == end:
+    while pq:
+        # Extraer el nodo con menor costo estimado f
+        _, current, path = heapq.heappop(pq)
+        
+        if current == end:
             return path
         
-        if curr in visited:
+        if current in visited:
             continue
-        visited.add(curr)
+        visited.add(current)
 
-        for neighbor in get_neighbors(maze, curr[0], curr[1]):
-            new_g = g_score[curr] + 1
+        current_g = g_score[current]
+
+        for neighbor in get_neighbors(maze, current[0], current[1]):
+            new_g = current_g + 1 # Costo de moverse es siempre 1
             
+            # Si encontramos un camino más corto a este vecino, o no lo hemos visto
             if new_g < g_score.get(neighbor, float('inf')):
                 g_score[neighbor] = new_g
                 f_score = new_g + heuristic(neighbor, end)
-                heapq.heappush(queue, (f_score, neighbor, path + [neighbor]))
-    
+                heapq.heappush(pq, (f_score, neighbor, path + [neighbor]))
+                
     return None
